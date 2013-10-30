@@ -6,10 +6,13 @@ This is a small tool, which captures keyboard input of different devices and sen
 
 * a UNIX with input event files (`/dev/input/*`)
 * some sort of c compiler
+* [libcurl](http://curl.haxx.se)
 
 ## Install ##
 
-There is no install. It's just the executable. Build it with `gcc -o inputserver main.c -pthread`.
+There is no install. It's just the executable. Build it with 
+		
+		gcc -I/usr/include/curl -o inputserver main.c -pthread -L/usr/lib/arm-linux-gnueabihf -lcurl
 
 ## Launch ##
 
