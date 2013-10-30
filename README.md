@@ -29,4 +29,4 @@ Copy the device urls to the file events.txt:
 
 Launch the server with
 
-		sudo ./inputserver 
+		sudo ./inputserver http://[SERVER]:[PORT]/scoreInput
