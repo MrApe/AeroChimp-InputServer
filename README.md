@@ -16,6 +16,16 @@ There is no install. It's just the executable. Build it with
 
 ## Launch ##
 
+### Device Discovery 
+
+#### Automatic device discovery
+
+The capture script automatically discovers and saves connected keyboard devices to `events.txt`. Simply call it with
+
+		./capture.sh
+
+#### Get Devices Manually
+
 Get a list of your input event files with:
 
 		ls -la /dev/input/
@@ -26,6 +36,8 @@ Copy the device urls to the file events.txt:
 
 		/dev/input/event1
 		/dev/input/event4
+
+### Launching the server
 
 Launch the server with
 
