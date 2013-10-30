@@ -13,8 +13,10 @@
 #include <termios.h>
 #include <signal.h>
 #include <pthread.h>
+#include <curl.h>
 
 FILE *logfile;
+char server[128];
 
 struct input_device {
   int handle;
@@ -95,6 +97,7 @@ char toChar(int key) {
     case 73: return '9';
     case 11: return '0';
     case 82: return '0';
+    case 51: return '.';
     case 52: return '.';
     case 83: return '.';
   }
@@ -102,9 +105,15 @@ char toChar(int key) {
 
 void *thread(void *arg)
  {
-   int j, rd, value;
+   CURL *curl;
+   int j, rd, value, res;
    int size = sizeof(struct input_event);
    int i = *((int*)arg);
+   char out[12];
+   char post[256];
+   
+   curl = curl_easy_init();
+   curl_easy_setopt(curl, CURLOPT_URL, server);
    
    fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
    while (1)
@@ -126,19 +135,32 @@ void *thread(void *arg)
          // ENTER
          if (devices[i].queue[1].code == 28 ||
              devices[i].queue[1].code == 96) {
-           char out[12];
+
            for (j = 0; j < devices[i].filled; j++) {
              out[j] = toChar(devices[i].buffer[j]);
            }
-           fprintf(logfile, "INFO: device %s has sent %s \n",devices[i].node,out);
+           fprintf(logfile, "INFO: device %s has emitted %i characters %s \n",devices[i].node, devices[i].filled,out);
+           
+           sprintf(post,"device=%i&score=%s",i,out);
+           curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
+           res = curl_easy_perform(curl);
+           /* Check for errors */ 
+           if(res != CURLE_OK) {
+             fprintf(stderr, "curl_easy_perform() failed: %s\n",
+                     curl_easy_strerror(res));
+           }
+           //cleanup
            devices[i].filled = 0;
+           memset(out, '\0', sizeof(out));
+           memset(post, '\0', sizeof(post));
          }
-         // Numbers
+         // Numbers or seperators
          if ((devices[i].queue[1].code >= 2 && devices[i].queue[1].code <=11) ||
              (devices[i].queue[1].code >= 71 && devices[i].queue[1].code <=73) ||
              (devices[i].queue[1].code >= 75 && devices[i].queue[1].code <=77) ||
              (devices[i].queue[1].code >= 79 && devices[i].queue[1].code <=81) ||
-             devices[i].queue[1].code == 52 || devices[i].queue[1].code == 83) {
+             devices[i].queue[1].code == 51 || devices[i].queue[1].code == 52  || 
+             devices[i].queue[1].code == 83) {
            devices[i].buffer[devices[i].filled] = devices[i].queue[1].code;
            devices[i].filled++;
          }
@@ -149,10 +171,15 @@ void *thread(void *arg)
    return(0);
  }
 
+void printHelp() {
+  printf("AeroChimp Score Input Server\n\n");
+  printf("Usage: inputserver AEROCHIMPSERVER\n\n");
+}
+
 int main(int argc, char* argv[])
 {
     pthread_t threads[64];
-    int i, nodeCount;
+    int i, nodeCount, argi;
     int *devNum;
 
     logfile = fopen("logfile.txt","w");
@@ -161,8 +188,19 @@ int main(int argc, char* argv[])
       exit(-2);
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
+    
+    if (argc < 2 ) {
+      printf("To few arguments");
+      printHelp();
+      exit(-1);
+    }
+    strcpy(server, argv[1]);
+    fprintf(logfile,"DEBUG: server is \"%s\"\n",server);
+    
     nodeCount = loadInputEventNodes(devices);
-
+    
+    curl_global_init(CURL_GLOBAL_ALL);
+    
     for (i=0; i < nodeCount && i < 64; i++) {
       fprintf(logfile,"DEBUG: starting thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
       devNum = (int *) malloc(sizeof(int));
@@ -175,6 +213,7 @@ int main(int argc, char* argv[])
       pthread_join(threads[i], NULL);
     }
     
+    curl_global_cleanup();
     end(devices);
     fclose(logfile);
     return 0;
