@@ -111,6 +111,8 @@ void *thread(void *arg)
    int i = *((int*)arg);
    char out[12];
    char post[256];
+   memset(out, '\0', sizeof(out));
+   memset(post, '\0', sizeof(post));
    
    curl = curl_easy_init();
    curl_easy_setopt(curl, CURLOPT_URL, server);
