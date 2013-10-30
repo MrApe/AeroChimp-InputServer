@@ -56,8 +56,8 @@ int loadInputEventNodes() {
         exit(1);
     }
     result = ioctl(devices[j].handle, EVIOCGNAME(sizeof(devices[j].name)), devices[j].handle);
-    fprintf(logfile,"DEBUG: Reading From : %s (%s)\n", devices[j].node, devices[j].name);
-    fprintf(logfile,"DEBUG: Getting exclusive access: ");
+    fprintf(logfile,"DEBUG: reading from %s (%s)\n", devices[j].node, devices[j].name);
+    fprintf(logfile,"DEBUG: getting exclusive access: ");
     result = ioctl(devices[j].handle, EVIOCGRAB, 1);
     fprintf(logfile,"%s\n", (result == 0) ? "SUCCESS" : "FAILURE");
     devices[j].filled = 0;
@@ -104,41 +104,43 @@ void *thread(void *arg)
  {
    int j, rd, value;
    int size = sizeof(struct input_event);
-   int* i = (int*)arg;
+   int i = *((int*)arg);
+   
+   fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
    while (1)
    {
-     if ((rd = read(devices[*i].handle, devices[*i].queue, size * 64)) < size) {
+     if ((rd = read(devices[i].handle, devices[i].queue, size * 64)) < size) {
          break;
      }
 
-     value = devices[*i].queue[0].value;
+     value = devices[i].queue[0].value;
 
-     if (value != ' ' && devices[*i].queue[1].value == 1 && devices[*i].queue[1].type == 1) {
-         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[*i].queue[1].code, devices[*i].node);
-         printf ("DEBUG: Code[%d] read from %s\n", devices[*i].queue[1].code, devices[*i].node);
+     if (value != ' ' && devices[i].queue[1].value == 1 && devices[i].queue[1].type == 1) {
+         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[i].queue[1].code, devices[i].node);
+         printf ("DEBUG: Code[%d] read from %s\n", devices[i].queue[1].code, devices[i].node);
          // ESC
-         if (devices[*i].queue[1].code == 1) {
+         if (devices[i].queue[1].code == 1) {
            end(devices);
            exit(0);
          }
          // ENTER
-         if (devices[*i].queue[1].code == 28 ||
-             devices[*i].queue[1].code == 96) {
+         if (devices[i].queue[1].code == 28 ||
+             devices[i].queue[1].code == 96) {
            char out[12];
-           for (j = 0; j < devices[*i].filled; j++) {
-             out[j] = toChar(devices[*i].buffer[j]);
+           for (j = 0; j < devices[i].filled; j++) {
+             out[j] = toChar(devices[i].buffer[j]);
            }
-           fprintf(logfile, "INFO: device %s has sent %s \n",devices[*i].node,out);
-           devices[*i].filled = 0;
+           fprintf(logfile, "INFO: device %s has sent %s \n",devices[i].node,out);
+           devices[i].filled = 0;
          }
          // Numbers
-         if ((devices[*i].queue[1].code >= 2 && devices[*i].queue[1].code <=11) ||
-             (devices[*i].queue[1].code >= 71 && devices[*i].queue[1].code <=73) ||
-             (devices[*i].queue[1].code >= 75 && devices[*i].queue[1].code <=77) ||
-             (devices[*i].queue[1].code >= 79 && devices[*i].queue[1].code <=81) ||
-             devices[*i].queue[1].code == 52 || devices[*i].queue[1].code == 83) {
-           devices[*i].buffer[devices[*i].filled] = devices[*i].queue[1].code;
-           devices[*i].filled++;
+         if ((devices[i].queue[1].code >= 2 && devices[i].queue[1].code <=11) ||
+             (devices[i].queue[1].code >= 71 && devices[i].queue[1].code <=73) ||
+             (devices[i].queue[1].code >= 75 && devices[i].queue[1].code <=77) ||
+             (devices[i].queue[1].code >= 79 && devices[i].queue[1].code <=81) ||
+             devices[i].queue[1].code == 52 || devices[i].queue[1].code == 83) {
+           devices[i].buffer[devices[i].filled] = devices[i].queue[1].code;
+           devices[i].filled++;
          }
       }
       
@@ -151,6 +153,7 @@ int main(int argc, char* argv[])
 {
     pthread_t threads[64];
     int i, nodeCount;
+    int *devNum;
 
     logfile = fopen("logfile.txt","w");
     if (logfile < 0) {
@@ -161,8 +164,14 @@ int main(int argc, char* argv[])
     nodeCount = loadInputEventNodes(devices);
 
     for (i=0; i < nodeCount && i < 64; i++) {
-      fprintf(logfile,"DEBUG: starting thread %i listening on %s\n", i, devices[i].node);
-      pthread_create(&threads[i], NULL, thread, (void*)&i);
+      fprintf(logfile,"DEBUG: starting thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
+      devNum = (int *) malloc(sizeof(int));
+      *devNum = i;
+      pthread_create(&threads[i], NULL, thread, (void*)devNum);
+      fprintf(logfile,"DEBUG: started thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
+    }
+    
+    for (i=0; i < nodeCount && i < 64; i++) {
       pthread_join(threads[i], NULL);
     }
     

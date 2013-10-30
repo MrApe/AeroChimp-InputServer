@@ -16,3 +16,8 @@
 *.exe
 *.out
 *.app
+inputserver
+
+# Project specific files
+events.txt
+logfile.txt
