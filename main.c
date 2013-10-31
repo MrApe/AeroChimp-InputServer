@@ -16,7 +16,8 @@
 #include <curl.h>
 
 FILE *logfile;
-char server[128];
+char ip[16];
+char port[8];
 
 struct input_device {
   int handle;
@@ -77,29 +78,40 @@ int end() {
 
 char toChar(int key) {
   switch (key) {
-    case 2:  return '1';
-    case 79: return '1';
-    case 3:  return '2';
-    case 80: return '2';
-    case 4:  return '3';
-    case 81: return '3';
-    case 5:  return '4';
-    case 75: return '4';
-    case 6:  return '5';
-    case 76: return '5';
-    case 7:  return '6';
-    case 77: return '6';
-    case 8:  return '7';
-    case 71: return '7';
-    case 9:  return '8';
-    case 72: return '8';
-    case 10: return '9';
-    case 73: return '9';
-    case 11: return '0';
-    case 82: return '0';
-    case 51: return '.';
-    case 52: return '.';
-    case 83: return '.';
+    case 2:   return '1';
+    case 79:  return '1'; // NumLock
+    case 3:   return '2';
+    case 80:  return '2'; // NumLock
+    case 4:   return '3';
+    case 81:  return '3'; // NumLock
+    case 5:   return '4';
+    case 75:  return '4'; // NumLock
+    case 6:   return '5';
+    case 76:  return '5'; // NumLock
+    case 7:   return '6';
+    case 77:  return '6'; // NumLock
+    case 8:   return '7';
+    case 71:  return '7'; // NumLock
+    case 9:   return '8';
+    case 72:  return '8'; // NumLock
+    case 10:  return '9';
+    case 73:  return '9'; // NumLock
+    case 11:  return '0';
+    case 82:  return '0'; // NumLock
+    case 51:  return '.'; // ','
+    case 52:  return '.'; // '.'
+    case 83:  return '.'; // NumLock ','
+    case 30:  return 'a';
+    case 69:  return 'a'; // NumLock Key
+    case 48:  return 'b';
+    case 117: return 'b'; // NumLock '='
+    case 31:  return 'd'; // 's' key for schwierigkeit
+    case 32:  return 'd'; // 'd' key for difficulty
+    case 98:  return 'd'; // NumLock '/'
+    case 24:  return 'o';
+    case 55:  return 'o'; // NumLock '*'
+    case 27:  return '+'; // '+'
+    case 78:  return '+'; // NumLock '+'
   }
 }
 
@@ -111,11 +123,11 @@ void *thread(void *arg)
    int i = *((int*)arg);
    char out[12];
    char post[256];
+   char post_address[256];
    memset(out, '\0', sizeof(out));
    memset(post, '\0', sizeof(post));
    
    curl = curl_easy_init();
-   curl_easy_setopt(curl, CURLOPT_URL, server);
    
    fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
    while (1)
@@ -143,6 +155,14 @@ void *thread(void *arg)
            }
            fprintf(logfile, "INFO: device %s has emitted %i characters %s \n",devices[i].node, devices[i].filled,out);
            
+           //is it a setup?
+           if (out[0] == '+') {
+             sprintf(post_address,"http://%s:%s/setDevice/%c",ip,port,out[1]);
+           } else {
+             sprintf(post_address,"http://%s:%s/scoreInput",ip,port);
+           }
+           
+           curl_easy_setopt(curl, CURLOPT_URL, post_address);
            sprintf(post,"device=%i&score=%s",i,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
            res = curl_easy_perform(curl);
@@ -156,13 +176,30 @@ void *thread(void *arg)
            memset(out, '\0', sizeof(out));
            memset(post, '\0', sizeof(post));
          }
-         // Numbers or seperators
-         if ((devices[i].queue[1].code >= 2 && devices[i].queue[1].code <=11) ||
+         // Write valid characters to buffer
+         //   - numbers from 0-9
+         //   - respective numpad codes ()
+         //   - seperators , .
+         //   - score letters a, b, s, d, o (k is ignored)
+         //   - first line of numblock assigned to scores ()
+         //   - '+' for score setup
+         if ((devices[i].queue[1].code >= 2 && devices[i].queue[1].code <=11)  ||
+           
              (devices[i].queue[1].code >= 71 && devices[i].queue[1].code <=73) ||
              (devices[i].queue[1].code >= 75 && devices[i].queue[1].code <=77) ||
              (devices[i].queue[1].code >= 79 && devices[i].queue[1].code <=81) ||
+               
              devices[i].queue[1].code == 51 || devices[i].queue[1].code == 52  || 
-             devices[i].queue[1].code == 83) {
+             devices[i].queue[1].code == 83 ||
+               
+             devices[i].queue[1].code == 24 || devices[i].queue[1].code == 30  ||
+             devices[i].queue[1].code == 31 || devices[i].queue[1].code == 32  ||
+             devices[i].queue[1].code == 48  ||
+             
+             devices[i].queue[1].code == 55 || devices[i].queue[1].code == 69  ||
+             devices[i].queue[1].code == 98 || devices[i].queue[1].code == 117 ||
+             
+             devices[i].queue[1].code == 27 || devices[i].queue[1].code == 78) {
            devices[i].buffer[devices[i].filled] = devices[i].queue[1].code;
            devices[i].filled++;
          }
@@ -175,7 +212,7 @@ void *thread(void *arg)
 
 void printHelp() {
   printf("AeroChimp Score Input Server\n\n");
-  printf("Usage: inputserver AEROCHIMPSERVER\n\n");
+  printf("Usage: inputserver IP PORT\n\n");
 }
 
 int main(int argc, char* argv[])
@@ -191,13 +228,19 @@ int main(int argc, char* argv[])
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
     
-    if (argc < 2 ) {
+    if (argc < 3 ) {
       printf("To few arguments");
       printHelp();
       exit(-1);
     }
-    strcpy(server, argv[1]);
-    fprintf(logfile,"DEBUG: server is \"%s\"\n",server);
+    if (strlen(argv[1]) > strlen(argv[2])) {
+      strcpy(ip, argv[1]);
+      strcpy(port, argv[2]);
+    } else {
+      strcpy(port, argv[1]);
+      strcpy(ip, argv[2]);
+    }
+    fprintf(logfile,"DEBUG: server ip is %s with port %s\n",ip,port);
     
     nodeCount = loadInputEventNodes(devices);
     
@@ -208,7 +251,6 @@ int main(int argc, char* argv[])
       devNum = (int *) malloc(sizeof(int));
       *devNum = i;
       pthread_create(&threads[i], NULL, thread, (void*)devNum);
-      fprintf(logfile,"DEBUG: started thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
     }
     
     for (i=0; i < nodeCount && i < 64; i++) {
