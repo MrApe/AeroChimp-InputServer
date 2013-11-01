@@ -18,6 +18,7 @@
 FILE *logfile;
 char ip[16];
 char port[8];
+char uid[8];
 
 struct input_device {
   int handle;
@@ -163,7 +164,7 @@ void *thread(void *arg)
            }
            
            curl_easy_setopt(curl, CURLOPT_URL, post_address);
-           sprintf(post,"device=%i&score=%s",i,out);
+           sprintf(post,"device=%s%i&score=%s",uid, i,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
            res = curl_easy_perform(curl);
            /* Check for errors */ 
@@ -212,7 +213,13 @@ void *thread(void *arg)
 
 void printHelp() {
   printf("AeroChimp Score Input Server\n\n");
-  printf("Usage: inputserver IP PORT\n\n");
+  printf("Usage: inputserver IP PORT UID\n\n");
+  printf("  IP    server to report score inputs to\n");
+  printf("  PORT  port of server to report score inputs to\n");
+  printf("  UID   unique ID (max. 8 chars) of the system to identify devices of multiple parallel systems\n");
+  printf("\n");
+  printf("Example:\n");
+  printf("          inputserver 10.0.1.14 5000 PI1\n");
 }
 
 int main(int argc, char* argv[])
@@ -228,7 +235,7 @@ int main(int argc, char* argv[])
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
     
-    if (argc < 3 ) {
+    if (argc < 4 ) {
       printf("To few arguments");
       printHelp();
       exit(-1);
@@ -240,7 +247,8 @@ int main(int argc, char* argv[])
       strcpy(port, argv[1]);
       strcpy(ip, argv[2]);
     }
-    fprintf(logfile,"DEBUG: server ip is %s with port %s\n",ip,port);
+    strcpy(uid, argv[3]);
+    fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
     
     nodeCount = loadInputEventNodes(devices);
     
