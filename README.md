@@ -41,4 +41,12 @@ Copy the device urls to the file events.txt:
 
 Launch the server with
 
-		sudo ./inputserver http://[SERVER]:[PORT]/scoreInput
+		sudo ./inputserver SERVER PORT UID
+
+* **SERVER** is the IP of the AeroChimp Server where scores are posted to
+* **PORT** is the respective port of the AeroChimp Server
+* **UID** is an (max.) 8-char unique identifier of the system to handle multiple inputserver devices
+
+An example launch call may look like the following:
+
+		sudo ./inputserver 192.168.0.314 31415 PI1
