@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <curl.h>
 
+#define __SEND_BUFFER__ 16
+
 FILE *logfile;
 char ip[16];
 char port[8];
@@ -24,9 +26,9 @@ struct input_device {
   int handle;
   char name[256];
   char node[128];
-  int buffer[16];
   int filled;
   struct input_event queue[8];
+  int buffer[__SEND_BUFFER__];
 } devices[64];
 
 int loadInputEventNodes() {
@@ -103,16 +105,15 @@ char toChar(int key) {
     case 52:  return '.'; // '.'
     case 83:  return '.'; // NumLock ','
     case 30:  return 'a';
-    case 69:  return 'a'; // NumLock Key
-    case 48:  return 'b';
-    case 117: return 'b'; // NumLock '='
+    case 98:  return 'a'; // NumLock '/'
+    case 48:  return 'b'; // 'b' key for German ausfürhrung
+    case 18:  return 'b'; // 'e' key for execution
+    case 55:  return 'b'; // NumLock '*'
     case 31:  return 'd'; // 's' key for schwierigkeit
     case 32:  return 'd'; // 'd' key for difficulty
-    case 98:  return 'd'; // NumLock '/'
+    case 74:  return 'd'; // NumLock '-'
     case 24:  return 'o';
-    case 55:  return 'o'; // NumLock '*'
-    case 27:  return '+'; // '+'
-    case 78:  return '+'; // NumLock '+'
+    case 78:  return 'o'; // NumLock '+'
   }
 }
 
@@ -138,18 +139,28 @@ void *thread(void *arg)
      }
 
      value = devices[i].queue[0].value;
+     // printf("DEBUG: 0: C[%d] T[%d] V[%d]; 1: Code[%d] Type[%d] V[%d]; 2: Code[%d] Type[%d] V[%d]; 3: Code[%d] Type[%d] V[%d]; 4: Code[%d] Type[%d] V[%d];\n",
+//      devices[i].queue[0].code, devices[i].queue[0].type, devices[i].queue[0].value,
+//      devices[i].queue[1].code, devices[i].queue[1].type, devices[i].queue[1].value,
+//      devices[i].queue[2].code, devices[i].queue[2].type, devices[i].queue[2].value,
+//      devices[i].queue[3].code, devices[i].queue[3].type, devices[i].queue[3].value,
+//      devices[i].queue[4].code, devices[i].queue[4].type, devices[i].queue[4].value);
+     int idxOfInterest = 1;
+     if (devices[i].queue[1].code == 69 && devices[i].queue[3].code != 69 && 
+         devices[i].queue[1].type == 1 && devices[i].queue[1].value == 1 && 
+         devices[i].queue[3].type == 1 && devices[i].queue[3].value == 1) idxOfInterest = 3;
 
-     if (value != ' ' && devices[i].queue[1].value == 1 && devices[i].queue[1].type == 1) {
-         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[i].queue[1].code, devices[i].node);
-         printf ("DEBUG: Code[%d] read from %s\n", devices[i].queue[1].code, devices[i].node);
+     if (value != ' ' && devices[i].queue[idxOfInterest].value == 1 && devices[i].queue[idxOfInterest].type == 1) {
+         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
+         printf ("DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
          // ESC
-         if (devices[i].queue[1].code == 1) {
+         if (devices[i].queue[idxOfInterest].code == 1) {
            end(devices);
            exit(0);
          }
          // ENTER
-         if (devices[i].queue[1].code == 28 ||
-             devices[i].queue[1].code == 96) {
+         if (devices[i].queue[idxOfInterest].code == 28 ||
+             devices[i].queue[idxOfInterest].code == 96) {
 
            for (j = 0; j < devices[i].filled; j++) {
              out[j] = toChar(devices[i].buffer[j]);
@@ -157,8 +168,10 @@ void *thread(void *arg)
            fprintf(logfile, "INFO: device %s has emitted %i characters %s \n",devices[i].node, devices[i].filled,out);
            
            //is it a setup?
-           if (out[0] == '+') {
-             sprintf(post_address,"http://%s:%s/setDevice/%c",ip,port,out[1]);
+           if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
+             sprintf(post_address,"http://%s:%s/setDevice/%c",ip,port,out[3]);
+             sprintf(out,"%c%c", out[4], out[5]);
+             
            } else {
              sprintf(post_address,"http://%s:%s/scoreInput",ip,port);
            }
@@ -181,28 +194,34 @@ void *thread(void *arg)
          //   - numbers from 0-9
          //   - respective numpad codes ()
          //   - seperators , .
-         //   - score letters a, b, s, d, o (k is ignored)
+         //   - score letters a, b, e, s, d, o (k is ignored)
          //   - first line of numblock assigned to scores ()
          //   - '+' for score setup
-         if ((devices[i].queue[1].code >= 2 && devices[i].queue[1].code <=11)  ||
+         if ((devices[i].queue[idxOfInterest].code >= 2 && devices[i].queue[idxOfInterest].code <=11)  ||
            
-             (devices[i].queue[1].code >= 71 && devices[i].queue[1].code <=73) ||
-             (devices[i].queue[1].code >= 75 && devices[i].queue[1].code <=77) ||
-             (devices[i].queue[1].code >= 79 && devices[i].queue[1].code <=81) ||
+             (devices[i].queue[idxOfInterest].code >= 71 && devices[i].queue[idxOfInterest].code <=73) ||
+             (devices[i].queue[idxOfInterest].code >= 75 && devices[i].queue[idxOfInterest].code <=77) ||
+             (devices[i].queue[idxOfInterest].code >= 79 && devices[i].queue[idxOfInterest].code <=81) ||
                
-             devices[i].queue[1].code == 51 || devices[i].queue[1].code == 52  || 
-             devices[i].queue[1].code == 83 ||
+             devices[i].queue[idxOfInterest].code == 51 || devices[i].queue[idxOfInterest].code == 52  || 
+             devices[i].queue[idxOfInterest].code == 83 || devices[i].queue[idxOfInterest].code == 69  || 
                
-             devices[i].queue[1].code == 24 || devices[i].queue[1].code == 30  ||
-             devices[i].queue[1].code == 31 || devices[i].queue[1].code == 32  ||
-             devices[i].queue[1].code == 48  ||
+             devices[i].queue[idxOfInterest].code == 24 || devices[i].queue[idxOfInterest].code == 30  ||
+             devices[i].queue[idxOfInterest].code == 31 || devices[i].queue[idxOfInterest].code == 32  ||
+             devices[i].queue[idxOfInterest].code == 48 || devices[i].queue[idxOfInterest].code == 18  ||
              
-             devices[i].queue[1].code == 55 || devices[i].queue[1].code == 69  ||
-             devices[i].queue[1].code == 98 || devices[i].queue[1].code == 117 ||
-             
-             devices[i].queue[1].code == 27 || devices[i].queue[1].code == 78) {
-           devices[i].buffer[devices[i].filled] = devices[i].queue[1].code;
-           devices[i].filled++;
+             devices[i].queue[idxOfInterest].code == 98 || devices[i].queue[idxOfInterest].code == 55  ||
+             devices[i].queue[idxOfInterest].code == 74 || devices[i].queue[idxOfInterest].code == 78 ) {
+           devices[i].buffer[devices[i].filled] = devices[i].queue[idxOfInterest].code;
+           if (devices[i].filled < 16 ) {
+             devices[i].filled++;
+           } else {
+             int k;
+             for (k = 0; k < (__SEND_BUFFER__ - 1); k++) {
+               devices[i].buffer[k] = devices[i].buffer[k+1];
+             }
+             devices[i].buffer[__SEND_BUFFER__-1] = 0;
+           }
          }
       }
       

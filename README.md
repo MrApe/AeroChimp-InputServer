@@ -50,3 +50,25 @@ Launch the server with
 An example launch call may look like the following:
 
 		sudo ./inputserver 192.168.0.314 31415 PI1
+
+## Usage ##
+
+You may register your device at the server under your score with the following command:
+
+        ...[PANEL][JUDGE][NUMBER]
+
+Where..
+
+* **[PANEL]** is the number of your panel (eg. 1)
+* **[JUDGE]** is the one letter abbreviation of your judge type. The following codes are used (***NOTICE: the letters are partly derived from the german judge names***)
+    * `a` for Artistic
+    * `b` or `e` for Execution
+    * `s` or `d` for Difficulty
+    * `o` for Superior (from german ***Oberkampfrichter***)
+* **[NUMBER]*** is your judge number (eg. 3)
+
+An example registration call would look like:
+
+        ...1e2
+
+This call would register the devices to the execution judge 2 of judges panel 1.
