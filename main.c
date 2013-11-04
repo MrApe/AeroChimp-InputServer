@@ -79,7 +79,7 @@ int end() {
   close(devices[0].handle);
 }
 
-char toChar(int key) {
+char charOf(int key) {
   switch (key) {
     case 2:   return '1';
     case 79:  return '1'; // NumLock
@@ -163,9 +163,9 @@ void *thread(void *arg)
              devices[i].queue[idxOfInterest].code == 96) {
 
            for (j = 0; j < devices[i].filled; j++) {
-             out[j] = toChar(devices[i].buffer[j]);
+             out[j] = charOf(devices[i].buffer[j]);
            }
-           fprintf(logfile, "INFO: device %s has emitted %i characters %s \n",devices[i].node, devices[i].filled,out);
+           fprintf(logfile, "INFO: device %s has emitted %i characters \"%s\" \n",devices[i].node, devices[i].filled,out);
            
            //is it a setup?
            if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
@@ -201,10 +201,10 @@ void *thread(void *arg)
            
              (devices[i].queue[idxOfInterest].code >= 71 && devices[i].queue[idxOfInterest].code <=73) ||
              (devices[i].queue[idxOfInterest].code >= 75 && devices[i].queue[idxOfInterest].code <=77) ||
-             (devices[i].queue[idxOfInterest].code >= 79 && devices[i].queue[idxOfInterest].code <=81) ||
+             (devices[i].queue[idxOfInterest].code >= 79 && devices[i].queue[idxOfInterest].code <=82) ||
                
              devices[i].queue[idxOfInterest].code == 51 || devices[i].queue[idxOfInterest].code == 52  || 
-             devices[i].queue[idxOfInterest].code == 83 || devices[i].queue[idxOfInterest].code == 69  || 
+             devices[i].queue[idxOfInterest].code == 83 ||
                
              devices[i].queue[idxOfInterest].code == 24 || devices[i].queue[idxOfInterest].code == 30  ||
              devices[i].queue[idxOfInterest].code == 31 || devices[i].queue[idxOfInterest].code == 32  ||
