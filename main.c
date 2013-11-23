@@ -139,12 +139,12 @@ void *thread(void *arg)
      }
 
      value = devices[i].queue[0].value;
-     // printf("DEBUG: 0: C[%d] T[%d] V[%d]; 1: Code[%d] Type[%d] V[%d]; 2: Code[%d] Type[%d] V[%d]; 3: Code[%d] Type[%d] V[%d]; 4: Code[%d] Type[%d] V[%d];\n",
-//      devices[i].queue[0].code, devices[i].queue[0].type, devices[i].queue[0].value,
-//      devices[i].queue[1].code, devices[i].queue[1].type, devices[i].queue[1].value,
-//      devices[i].queue[2].code, devices[i].queue[2].type, devices[i].queue[2].value,
-//      devices[i].queue[3].code, devices[i].queue[3].type, devices[i].queue[3].value,
-//      devices[i].queue[4].code, devices[i].queue[4].type, devices[i].queue[4].value);
+      /*printf("DEBUG: 0: C[%d] T[%d] V[%d]; 1: Code[%d] Type[%d] V[%d]; 2: Code[%d] Type[%d] V[%d]; 3: Code[%d] Type[%d] V[%d]; 4: Code[%d] Type[%d] V[%d];\n",
+      devices[i].queue[0].code, devices[i].queue[0].type, devices[i].queue[0].value,
+      devices[i].queue[1].code, devices[i].queue[1].type, devices[i].queue[1].value,
+      devices[i].queue[2].code, devices[i].queue[2].type, devices[i].queue[2].value,
+      devices[i].queue[3].code, devices[i].queue[3].type, devices[i].queue[3].value,
+      devices[i].queue[4].code, devices[i].queue[4].type, devices[i].queue[4].value);*/
      int idxOfInterest = 1;
      if (devices[i].queue[1].code == 69 && devices[i].queue[3].code != 69 && 
          devices[i].queue[1].type == 1 && devices[i].queue[1].value == 1 && 
@@ -224,7 +224,6 @@ void *thread(void *arg)
            }
          }
       }
-      
    }
    return(0);
  }
