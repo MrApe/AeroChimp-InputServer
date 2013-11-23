@@ -225,7 +225,6 @@ void *thread(void *arg)
          }
       }
       
-      sleep(0);
    }
    return(0);
  }
