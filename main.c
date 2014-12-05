@@ -1,3 +1,9 @@
+/* Copyright (C) Jonas Schwartze, Inc - All Rights Reserved
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ * Proprietary and confidential
+ * Written by Jonas Schwartze <jschwartze@me.com>, December 2014
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,7 +21,12 @@
 #include <pthread.h>
 #include <curl.h>
 
-#define __SEND_BUFFER__ 16
+#ifndef __SEND_BUFFER__
+  #define __SEND_BUFFER__ 16
+#endif
+#ifndef __VERSION__
+  #define __VERSION__ "v1.0.0"
+#endif
 
 FILE *logfile;
 char ip[16];
@@ -38,7 +49,7 @@ int loadInputEventNodes() {
   char line[128];
   size_t len = 0;
   ssize_t read;
-  
+
   fprintf(logfile, "DEBUG: opening events source file\n");
   eventFile = fopen("events.txt", "r");
   if (eventFile == NULL) exit(EXIT_FAILURE);
@@ -229,7 +240,7 @@ void *thread(void *arg)
  }
 
 void printHelp() {
-  printf("AeroChimp Score Input Server\n\n");
+  printf("AeroChimp Score Input Server %s\n\n", __VERSION__);
   printf("Usage: inputserver IP PORT UID\n\n");
   printf("  IP    server to report score inputs to\n");
   printf("  PORT  port of server to report score inputs to\n");
