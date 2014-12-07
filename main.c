@@ -145,8 +145,10 @@ void *thread(void *arg)
    fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
    while (1)
    {
-     if ((rd = read(devices[i].handle, devices[i].queue, size * 64)) < size) {
-         break;
+     if ((rd = read(devices[i].handle, devices[i].queue, size * 64)) < size) {  
+       printf ("ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
+       fprintf (logfile,"ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
+       break;
      }
 
      value = devices[i].queue[0].value;
@@ -161,6 +163,7 @@ void *thread(void *arg)
          devices[i].queue[1].type == 1 && devices[i].queue[1].value == 1 && 
          devices[i].queue[3].type == 1 && devices[i].queue[3].value == 1) idxOfInterest = 3;
 
+     // Check for a valid input
      if (value != ' ' && devices[i].queue[idxOfInterest].value == 1 && devices[i].queue[idxOfInterest].type == 1) {
          fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
          printf ("DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
@@ -186,7 +189,7 @@ void *thread(void *arg)
            } else {
              sprintf(post_address,"http://%s:%s/scoreInput",ip,port);
            }
-           
+           //send it 
            curl_easy_setopt(curl, CURLOPT_URL, post_address);
            sprintf(post,"device=%s%i&score=%s",uid, i,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
@@ -200,7 +203,8 @@ void *thread(void *arg)
            devices[i].filled = 0;
            memset(out, '\0', sizeof(out));
            memset(post, '\0', sizeof(post));
-         }
+         } //if ENTER
+
          // Write valid characters to buffer
          //   - numbers from 0-9
          //   - respective numpad codes ()
@@ -236,6 +240,7 @@ void *thread(void *arg)
          }
       }
    }
+   fprintf (logfile,"DEBUG: THREAD[%i]: ended event loop for device %i (%s)\n", i, i, devices[i].node);
    return(0);
  }
 
