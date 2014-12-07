@@ -55,10 +55,12 @@ int loadInputEventNodes() {
   if (eventFile == NULL) exit(EXIT_FAILURE);
   fprintf(logfile, "DEBUG: events source file opened\n");
   fprintf(logfile, "DEBUG: reading input events nodes from events source file\n");
+  fflush(logfile);
 
   while ( fgets ( line, sizeof line, eventFile ) != NULL ) {
      strncpy(devices[i].node, line, strlen(line)-1);
      fprintf (logfile,"DEBUG: read address \"%s\" for device (%i)\n", devices[i].node, i);
+	 fflush(logfile);
      i++;
   }
   
@@ -68,6 +70,7 @@ int loadInputEventNodes() {
     devices[j].handle = open(devices[j].node, O_RDONLY);
     if (devices[j].handle == -1) {
         fprintf(logfile,"ERROR: Failed to open event device %s.\n", devices[j].node);
+		fflush(logfile);
         perror("Failed to open event device");
         printf("errno = %d.\n", errno);
         exit(1);
@@ -77,9 +80,11 @@ int loadInputEventNodes() {
     fprintf(logfile,"DEBUG: getting exclusive access: ");
     result = ioctl(devices[j].handle, EVIOCGRAB, 1);
     fprintf(logfile,"%s\n", (result == 0) ? "SUCCESS" : "FAILURE");
+	fflush(logfile)
     devices[j].filled = 0;
   }
   fprintf(logfile,"DEBUG: opened %i devices\n",i);
+  fflush(logfile);
   return i;
 }
 
@@ -143,11 +148,14 @@ void *thread(void *arg)
    curl = curl_easy_init();
    
    fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
+   fflush(logfile);
+
    while (1)
    {
      if ((rd = read(devices[i].handle, devices[i].queue, size * 64)) < size) {  
        printf ("ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
        fprintf (logfile,"ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
+	   fflush(logfile);
        break;
      }
 
@@ -180,6 +188,8 @@ void *thread(void *arg)
              out[j] = charOf(devices[i].buffer[j]);
            }
            fprintf(logfile, "INFO: device %s has emitted %i characters \"%s\" \n",devices[i].node, devices[i].filled,out);
+		   fflush(logfile);
+
            
            //is it a setup?
            if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
@@ -197,6 +207,8 @@ void *thread(void *arg)
            /* Check for errors */ 
            if(res != CURLE_OK) {
              fprintf(stderr, "curl_easy_perform() failed: %s\n",
+			 fflush(logfile);
+	
                      curl_easy_strerror(res));
            }
            //cleanup
@@ -241,6 +253,8 @@ void *thread(void *arg)
       }
    }
    fprintf (logfile,"DEBUG: THREAD[%i]: ended event loop for device %i (%s)\n", i, i, devices[i].node);
+   fflush(logfile);
+
    return(0);
  }
 
@@ -267,6 +281,7 @@ int main(int argc, char* argv[])
       exit(-2);
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
+	fflush(logfile)
     
     if (argc < 4 ) {
       printf("To few arguments");
@@ -282,6 +297,7 @@ int main(int argc, char* argv[])
     }
     strcpy(uid, argv[3]);
     fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
+	fflush(logfile)
     
     nodeCount = loadInputEventNodes(devices);
     
@@ -289,6 +305,8 @@ int main(int argc, char* argv[])
     
     for (i=0; i < nodeCount && i < 64; i++) {
       fprintf(logfile,"DEBUG: starting thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
+	  fflush(logfile);
+
       devNum = (int *) malloc(sizeof(int));
       *devNum = i;
       pthread_create(&threads[i], NULL, thread, (void*)devNum);
