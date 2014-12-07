@@ -19,6 +19,7 @@
 #include <termios.h>
 #include <signal.h>
 #include <curl.h>
+#include <uuid/uuid.h>
 
 #ifndef __SEND_BUFFER__
   #define __SEND_BUFFER__ 16
@@ -39,6 +40,7 @@ struct input_device {
   int filled;
   struct input_event queue[8];
   int buffer[__SEND_BUFFER__];
+  uuid_t uid;
 } device;
 
 char charOf(int key) {
@@ -79,7 +81,7 @@ char charOf(int key) {
   }
 }
 
-void main_loop()
+int main_loop()
  {
    CURL *curl;
    int j, rd, value, res;
@@ -148,15 +150,13 @@ void main_loop()
            }
            //send it 
            curl_easy_setopt(curl, CURLOPT_URL, post_address);
-           sprintf(post,"device=%s%i&score=%s",uid, i,out);
+           sprintf(post,"device=%s%s&score=%s",uid, device.uid,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
            res = curl_easy_perform(curl);
            /* Check for errors */ 
            if(res != CURLE_OK) {
              fprintf(stderr, "curl_easy_perform() failed: %s\n",
-			 fflush(logfile);
-	
-                     curl_easy_strerror(res));
+                     curl_easy_strerror(res));	
            }
            //cleanup
            device.filled = 0;
@@ -222,6 +222,7 @@ int main(int argc, char* argv[])
     int i, nodeCount, argi;
     int *devNum;
     int result = 0;
+    int main_return = 0;
 
     logfile = fopen("logfile.txt","w");
     if (logfile < 0) {
@@ -229,8 +230,7 @@ int main(int argc, char* argv[])
       exit(-2);
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
-	fflush(logfile)
-    
+    fflush(logfile);
     if (argc < 5 ) {
       printf("To few arguments");
       printHelp();
@@ -245,10 +245,10 @@ int main(int argc, char* argv[])
     }
     strcpy(uid, argv[3]);
     fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
-	fflush(logfile)
+    fflush(logfile);
     
     //load device
-    strncpy(device.node, argv[4], strlen(argv[4])-1);
+    strncpy(device.node, argv[4], strlen(argv[4]));
     fprintf (logfile,"DEBUG: read address \"%s\" for device\n", device.node);
     fflush(logfile);
     device.handle = -1;
@@ -262,6 +262,7 @@ int main(int argc, char* argv[])
         printf("errno = %d.\n", errno);
         exit(1);
     }
+    uuid_generate(device.uid);
     result = ioctl(device.handle, EVIOCGNAME(sizeof(device.name)), device.handle);
     fprintf(logfile,"DEBUG: reading from %s (%s)\n", device.node, device.name);
     fprintf(logfile,"DEBUG: getting exclusive access: ");
@@ -269,7 +270,7 @@ int main(int argc, char* argv[])
     if (result == 0) {
         device.filled = 0;
         fprintf(logfile,"SUCCESS\n");
-        fflush(logfile)
+        fflush(logfile);
     } else {
         fprintf(logfile,"ERROR: Failed to get exclusive access of device %s.\n", device.node);
         printf("ERROR: Failed to get exclusive access of device %s.\n", device.node);
@@ -283,15 +284,19 @@ int main(int argc, char* argv[])
     
     //starting main loop
     
-    main_loop();
+    main_return = main_loop();
     
     curl_global_cleanup();
     
     result = ioctl(device.handle, EVIOCGRAB, 1);
     close(device.handle);
-    fprintf(logfile, "INFO: application terminated normally.\n");
-    fflush(logfile);
-    printf("INFO: application terminated normally.\n");
+    if (main_return == 0) {
+      fprintf(logfile, "INFO: application terminated normally.\n");
+      printf("INFO: application terminated normally.\n");
+    } else {
+      fprintf(logfile, "INFO: application terminated with errors.\n");
+      printf("INFO: application terminated with errors.\n");
+    }
     fclose(logfile);
-    return 0;
+    return main_return;
 }
