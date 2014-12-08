@@ -27,6 +27,8 @@
 #ifndef __VERSION__
   #define __VERSION__ "v1.0.0"
 #endif
+#define __LOGFILENAME__ "/var/log/inputserver.log"
+
 
 FILE *logfile;
 char ip[16];
@@ -36,11 +38,11 @@ char uid[8];
 struct input_device {
   int handle;
   char name[256];
-  char node[128];
+  char node[256];
   int filled;
   struct input_event queue[8];
   int buffer[__SEND_BUFFER__];
-  uuid_t uid;
+  char  uid[128];
 } device;
 
 char charOf(int key) {
@@ -224,14 +226,14 @@ int main(int argc, char* argv[])
     int result = 0;
     int main_return = 0;
 
-    logfile = fopen("logfile.txt","w");
+    logfile = fopen(__LOGFILENAME__,"w");
     if (logfile < 0) {
       printf("Could not initialize logfile");
       exit(-2);
     }
     fprintf(logfile, "DEBUG: logfile opened\n");
     fflush(logfile);
-    if (argc < 5 ) {
+    if (argc < 6 ) {
       printf("To few arguments");
       printHelp();
       exit(-1);
@@ -249,6 +251,7 @@ int main(int argc, char* argv[])
     
     //load device
     strncpy(device.node, argv[4], strlen(argv[4]));
+    strncpy(device.uid, argv[5], strlen(argv[5]));
     fprintf (logfile,"DEBUG: read address \"%s\" for device\n", device.node);
     fflush(logfile);
     device.handle = -1;
@@ -262,7 +265,6 @@ int main(int argc, char* argv[])
         printf("errno = %d.\n", errno);
         exit(1);
     }
-    uuid_generate(device.uid);
     result = ioctl(device.handle, EVIOCGNAME(sizeof(device.name)), device.handle);
     fprintf(logfile,"DEBUG: reading from %s (%s)\n", device.node, device.name);
     fprintf(logfile,"DEBUG: getting exclusive access: ");
