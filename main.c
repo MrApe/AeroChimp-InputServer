@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <syslog.h>
 #include <termios.h>
 #include <signal.h>
 #include <curl.h>
@@ -209,13 +210,15 @@ int main_loop()
 
 void printHelp() {
   printf("AeroChimp Score Input Server %s\n\n", __VERSION__);
-  printf("Usage: inputserver IP PORT UID\n\n");
-  printf("  IP    server to report score inputs to\n");
-  printf("  PORT  port of server to report score inputs to\n");
-  printf("  UID   unique ID (max. 8 chars) of the system to identify devices of multiple parallel systems\n");
+  printf("Usage: inputserver IP PORT UID PATH DEVID\n\n");
+  printf("  IP      server to report score inputs to\n");
+  printf("  PORT    port of server to report score inputs to\n");
+  printf("  UID     unique ID (max. 8 chars) of the system to identify devices of multiple parallel systems\n");
+  printf("  PATH    fully qualified path of the input device node\n");
+  printf("  DEVID   unique ID of the input device to identify devices of multiple parallel systems\n");
   printf("\n");
   printf("Example:\n");
-  printf("          inputserver 10.0.1.14 5000 PI1\n");
+  printf("          inputserver 10.0.1.14 5000 PI1 /dev/input/event0 1-1.1-1.3.1:1-0\n");
 }
 
 int main(int argc, char* argv[])
@@ -248,6 +251,8 @@ int main(int argc, char* argv[])
     strcpy(uid, argv[3]);
     fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
     fflush(logfile);
+    openlog ("inputserver", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
+    syslog (LOG_INFO, "server is running with ip %s and port %s on system %s", ip, port, uid);
     
     //load device
     strncpy(device.node, argv[4], strlen(argv[4]));
@@ -300,5 +305,6 @@ int main(int argc, char* argv[])
       printf("INFO: application terminated with errors.\n");
     }
     fclose(logfile);
+    closelog();
     return main_return;
 }
