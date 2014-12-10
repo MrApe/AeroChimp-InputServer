@@ -28,7 +28,6 @@
 #ifndef __VERSION__
   #define __VERSION__ "v1.0.0"
 #endif
-#define __LOGFILENAME__ "/var/log/inputserver.log"
 
 
 FILE *logfile;
@@ -98,15 +97,12 @@ int main_loop()
    
    curl = curl_easy_init();
    
-   fprintf (logfile,"DEBUG: starting event loop for device (%s)\n", device.node);
-   fflush(logfile);
+   syslog (LOG_DEBUG,"DEBUG: starting event loop for device (%s)\n", device.node);
 
    while (1)
    {
      if ((rd = read(device.handle, device.queue, size * 64)) < size) {  
-       printf ("ERROR: device (%s) disconnected \n", device.node);
-       fprintf (logfile,"ERROR: device (%s) disconnected \n", device.node);
-	   fflush(logfile);
+       syslog (LOG_ERR,"ERROR: device (%s) disconnected \n", device.node);
        rvalue = -1;
        break;
      }
@@ -125,8 +121,7 @@ int main_loop()
 
      // Check for a valid input
      if (value != ' ' && device.queue[idxOfInterest].value == 1 && device.queue[idxOfInterest].type == 1) {
-         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", device.queue[idxOfInterest].code, device.node);
-         printf ("DEBUG: Code[%d] read from %s\n", device.queue[idxOfInterest].code, device.node);
+         syslog(LOG_DEBUG,"DEBUG: Code[%d] read from %s\n", device.queue[idxOfInterest].code, device.node);
          // ESC
          if (device.queue[idxOfInterest].code == 1) {
              rvalue = 0;
@@ -139,9 +134,7 @@ int main_loop()
            for (j = 0; j < device.filled; j++) {
              out[j] = charOf(device.buffer[j]);
            }
-           fprintf(logfile, "INFO: device %s has emitted %i characters \"%s\" \n",device.node, device.filled,out);
-		   fflush(logfile);
-
+           syslog(LOG_INFO, "INFO: device %s has emitted %i characters \"%s\" \n",device.node, device.filled,out);
            
            //is it a setup?
            if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
@@ -153,12 +146,12 @@ int main_loop()
            }
            //send it 
            curl_easy_setopt(curl, CURLOPT_URL, post_address);
-           sprintf(post,"device=%s%s&score=%s",uid, device.uid,out);
+           sprintf(post,"device=%s_%s&score=%s",uid, device.uid,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
            res = curl_easy_perform(curl);
            /* Check for errors */ 
            if(res != CURLE_OK) {
-             fprintf(stderr, "curl_easy_perform() failed: %s\n",
+             syslog(LOG_ERR, "curl_easy_perform() failed: %s\n",
                      curl_easy_strerror(res));	
            }
            //cleanup
@@ -202,9 +195,7 @@ int main_loop()
          }
       }
    }
-   fprintf (logfile,"DEBUG: ended event loop for device (%s)\n", device.node);
-   fflush(logfile);
-
+   syslog(LOG_DEBUG,"DEBUG: ended event loop for device (%s)\n", device.node);
    return(rvalue);
  }
 
@@ -229,16 +220,11 @@ int main(int argc, char* argv[])
     int result = 0;
     int main_return = 0;
 
-    logfile = fopen(__LOGFILENAME__,"w");
-    if (logfile < 0) {
-      printf("Could not initialize logfile");
-      exit(-2);
-    }
-    fprintf(logfile, "DEBUG: logfile opened\n");
-    fflush(logfile);
+    setlogmask (LOG_UPTO (LOG_DEBUG));
+    openlog ("inputserver", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_DAEMON);
     if (argc < 6 ) {
-      printf("To few arguments");
-      printHelp();
+      syslog(LOG_ERR,"To few arguments");
+      //printHelp();
       exit(-1);
     }
     if (strlen(argv[1]) > strlen(argv[2])) {
@@ -249,41 +235,29 @@ int main(int argc, char* argv[])
       strcpy(ip, argv[2]);
     }
     strcpy(uid, argv[3]);
-    fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
-    fflush(logfile);
-    openlog ("inputserver", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL1);
     syslog (LOG_INFO, "server is running with ip %s and port %s on system %s", ip, port, uid);
     
     //load device
     strncpy(device.node, argv[4], strlen(argv[4]));
     strncpy(device.uid, argv[5], strlen(argv[5]));
-    fprintf (logfile,"DEBUG: read address \"%s\" for device\n", device.node);
-    fflush(logfile);
+    syslog(LOG_DEBUG,"DEBUG: read address \"%s\" for device\n", device.node);
     device.handle = -1;
-    fprintf(logfile,"DEBUG: opening device %s\n",device.node);
     device.handle = open(device.node, O_RDONLY);
     if (device.handle == -1) {
-        fprintf(logfile,"ERROR: Failed to open event device %s.\n", device.node);
-        printf("ERROR: Failed to open event device %s.\n", device.node);
-        fflush(logfile);
+        syslog(LOG_ERR,"ERROR: Failed to open event device %s.\n", device.node);
         perror("Failed to open event device");
-        printf("errno = %d.\n", errno);
         exit(1);
     }
     result = ioctl(device.handle, EVIOCGNAME(sizeof(device.name)), device.handle);
-    fprintf(logfile,"DEBUG: reading from %s (%s)\n", device.node, device.name);
-    fprintf(logfile,"DEBUG: getting exclusive access: ");
+    syslog(LOG_DEBUG,"DEBUG: reading from %s (%s)\n", device.node, device.name);
+    syslog(LOG_DEBUG,"DEBUG: getting exclusive access: ");
     result = ioctl(device.handle, EVIOCGRAB, 1);
     if (result == 0) {
         device.filled = 0;
-        fprintf(logfile,"SUCCESS\n");
-        fflush(logfile);
+        syslog(LOG_DEBUG,"SUCCESS\n");
     } else {
-        fprintf(logfile,"ERROR: Failed to get exclusive access of device %s.\n", device.node);
-        printf("ERROR: Failed to get exclusive access of device %s.\n", device.node);
-        fflush(logfile);
+        syslog(LOG_ERR,"ERROR: Failed to get exclusive access of device %s.\n", device.node);
         perror("Failed to get exclusive access on device");
-        printf("errno = %d.\n", errno);
         exit(errno);
     }
 
@@ -298,13 +272,10 @@ int main(int argc, char* argv[])
     result = ioctl(device.handle, EVIOCGRAB, 1);
     close(device.handle);
     if (main_return == 0) {
-      fprintf(logfile, "INFO: application terminated normally.\n");
-      printf("INFO: application terminated normally.\n");
+      syslog(LOG_INFO, "INFO: application terminated normally.\n");
     } else {
-      fprintf(logfile, "INFO: application terminated with errors.\n");
-      printf("INFO: application terminated with errors.\n");
+      syslog(LOG_NOTICE, "INFO: application terminated with errors.\n");
     }
-    fclose(logfile);
     closelog();
     return main_return;
 }

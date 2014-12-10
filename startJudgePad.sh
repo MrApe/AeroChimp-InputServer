@@ -8,6 +8,6 @@ ID=$(echo $2 | sed -e 's/\/input.*$//g' -e 's/^.*\///g')
 
 logger Starting judgePad on ${PIID} sending to ${IP}:${PORT} with device $1 as $ID
 
-sudo inputserver ${IP} ${PORT} ${HOST} /dev/input/$1 $ID & 
+inputserver ${IP} ${PORT} ${PIID} /dev/input/$1 $ID & 
 
 logger Started judgePad on ${PIID} sending to ${IP}:${PORT} with device $1 as $ID
