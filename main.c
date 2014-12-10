@@ -26,7 +26,7 @@
   #define __SEND_BUFFER__ 16
 #endif
 #ifndef __VERSION__
-  #define __VERSION__ "v1.0.0"
+  #define __VERSION__ "v1.1.0"
 #endif
 
 
