@@ -16,17 +16,19 @@
 #include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <syslog.h>
 #include <termios.h>
 #include <signal.h>
-#include <pthread.h>
 #include <curl.h>
+#include <uuid/uuid.h>
 
 #ifndef __SEND_BUFFER__
   #define __SEND_BUFFER__ 16
 #endif
 #ifndef __VERSION__
-  #define __VERSION__ "v1.0.0"
+  #define __VERSION__ "v1.1.0"
 #endif
+
 
 FILE *logfile;
 char ip[16];
@@ -36,64 +38,12 @@ char uid[8];
 struct input_device {
   int handle;
   char name[256];
-  char node[128];
+  char node[256];
   int filled;
   struct input_event queue[8];
   int buffer[__SEND_BUFFER__];
-} devices[64];
-
-int loadInputEventNodes() {
-  int result = 0;
-  int i = 0, j;
-  FILE *eventFile;
-  char line[128];
-  size_t len = 0;
-  ssize_t read;
-
-  fprintf(logfile, "DEBUG: opening events source file\n");
-  eventFile = fopen("events.txt", "r");
-  if (eventFile == NULL) exit(EXIT_FAILURE);
-  fprintf(logfile, "DEBUG: events source file opened\n");
-  fprintf(logfile, "DEBUG: reading input events nodes from events source file\n");
-  fflush(logfile);
-
-  while ( fgets ( line, sizeof line, eventFile ) != NULL ) {
-     strncpy(devices[i].node, line, strlen(line)-1);
-     fprintf (logfile,"DEBUG: read address \"%s\" for device (%i)\n", devices[i].node, i);
-	 fflush(logfile);
-     i++;
-  }
-  
-  for (j = 0; j < i; j++) {
-    devices[j].handle = -1;
-    fprintf(logfile,"DEBUG: opening device %s\n",devices[j].node);
-    devices[j].handle = open(devices[j].node, O_RDONLY);
-    if (devices[j].handle == -1) {
-        fprintf(logfile,"ERROR: Failed to open event device %s.\n", devices[j].node);
-		fflush(logfile);
-        perror("Failed to open event device");
-        printf("errno = %d.\n", errno);
-        exit(1);
-    }
-    result = ioctl(devices[j].handle, EVIOCGNAME(sizeof(devices[j].name)), devices[j].handle);
-    fprintf(logfile,"DEBUG: reading from %s (%s)\n", devices[j].node, devices[j].name);
-    fprintf(logfile,"DEBUG: getting exclusive access: ");
-    result = ioctl(devices[j].handle, EVIOCGRAB, 1);
-    fprintf(logfile,"%s\n", (result == 0) ? "SUCCESS" : "FAILURE");
-	fflush(logfile)
-    devices[j].filled = 0;
-  }
-  fprintf(logfile,"DEBUG: opened %i devices\n",i);
-  fflush(logfile);
-  return i;
-}
-
-int end() {
-  int result = 0;
-  printf("Exiting.\n");
-  result = ioctl(devices[0].handle, EVIOCGRAB, 1);
-  close(devices[0].handle);
-}
+  char  uid[128];
+} device;
 
 char charOf(int key) {
   switch (key) {
@@ -133,12 +83,12 @@ char charOf(int key) {
   }
 }
 
-void *thread(void *arg)
+int main_loop()
  {
    CURL *curl;
    int j, rd, value, res;
+   int rvalue = 0;
    int size = sizeof(struct input_event);
-   int i = *((int*)arg);
    char out[12];
    char post[256];
    char post_address[256];
@@ -147,49 +97,44 @@ void *thread(void *arg)
    
    curl = curl_easy_init();
    
-   fprintf (logfile,"DEBUG: THREAD[%i]: starting event loop for device %i (%s)\n", i, i, devices[i].node);
-   fflush(logfile);
+   syslog (LOG_DEBUG,"DEBUG: starting event loop for device (%s)\n", device.node);
 
    while (1)
    {
-     if ((rd = read(devices[i].handle, devices[i].queue, size * 64)) < size) {  
-       printf ("ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
-       fprintf (logfile,"ERROR: THREAD[%i]: device %i (%s) disconnected \n", i, i, devices[i].node);
-	   fflush(logfile);
+     if ((rd = read(device.handle, device.queue, size * 64)) < size) {  
+       syslog (LOG_ERR,"ERROR: device (%s) disconnected \n", device.node);
+       rvalue = -1;
        break;
      }
 
-     value = devices[i].queue[0].value;
+     value = device.queue[0].value;
       /*printf("DEBUG: 0: C[%d] T[%d] V[%d]; 1: Code[%d] Type[%d] V[%d]; 2: Code[%d] Type[%d] V[%d]; 3: Code[%d] Type[%d] V[%d]; 4: Code[%d] Type[%d] V[%d];\n",
-      devices[i].queue[0].code, devices[i].queue[0].type, devices[i].queue[0].value,
-      devices[i].queue[1].code, devices[i].queue[1].type, devices[i].queue[1].value,
-      devices[i].queue[2].code, devices[i].queue[2].type, devices[i].queue[2].value,
-      devices[i].queue[3].code, devices[i].queue[3].type, devices[i].queue[3].value,
-      devices[i].queue[4].code, devices[i].queue[4].type, devices[i].queue[4].value);*/
+      device.queue[0].code, device.queue[0].type, device.queue[0].value,
+      device.queue[1].code, device.queue[1].type, device.queue[1].value,
+      device.queue[2].code, device.queue[2].type, device.queue[2].value,
+      device.queue[3].code, device.queue[3].type, device.queue[3].value,
+      device.queue[4].code, device.queue[4].type, device.queue[4].value);*/
      int idxOfInterest = 1;
-     if (devices[i].queue[1].code == 69 && devices[i].queue[3].code != 69 && 
-         devices[i].queue[1].type == 1 && devices[i].queue[1].value == 1 && 
-         devices[i].queue[3].type == 1 && devices[i].queue[3].value == 1) idxOfInterest = 3;
+     if (device.queue[1].code == 69 && device.queue[3].code != 69 && 
+         device.queue[1].type == 1 && device.queue[1].value == 1 && 
+         device.queue[3].type == 1 && device.queue[3].value == 1) idxOfInterest = 3;
 
      // Check for a valid input
-     if (value != ' ' && devices[i].queue[idxOfInterest].value == 1 && devices[i].queue[idxOfInterest].type == 1) {
-         fprintf (logfile,"DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
-         printf ("DEBUG: Code[%d] read from %s\n", devices[i].queue[idxOfInterest].code, devices[i].node);
+     if (value != ' ' && device.queue[idxOfInterest].value == 1 && device.queue[idxOfInterest].type == 1) {
+         syslog(LOG_DEBUG,"DEBUG: Code[%d] read from %s\n", device.queue[idxOfInterest].code, device.node);
          // ESC
-         if (devices[i].queue[idxOfInterest].code == 1) {
-           end(devices);
-           exit(0);
+         if (device.queue[idxOfInterest].code == 1) {
+             rvalue = 0;
+             break;
          }
          // ENTER
-         if (devices[i].queue[idxOfInterest].code == 28 ||
-             devices[i].queue[idxOfInterest].code == 96) {
+         if (device.queue[idxOfInterest].code == 28 ||
+             device.queue[idxOfInterest].code == 96) {
 
-           for (j = 0; j < devices[i].filled; j++) {
-             out[j] = charOf(devices[i].buffer[j]);
+           for (j = 0; j < device.filled; j++) {
+             out[j] = charOf(device.buffer[j]);
            }
-           fprintf(logfile, "INFO: device %s has emitted %i characters \"%s\" \n",devices[i].node, devices[i].filled,out);
-		   fflush(logfile);
-
+           syslog(LOG_INFO, "INFO: device %s has emitted %i characters \"%s\" \n",device.node, device.filled,out);
            
            //is it a setup?
            if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
@@ -201,21 +146,19 @@ void *thread(void *arg)
            }
            //send it 
            curl_easy_setopt(curl, CURLOPT_URL, post_address);
-           sprintf(post,"device=%s%i&score=%s",uid, i,out);
+           sprintf(post,"device=%s_%s&score=%s",uid, device.uid,out);
            curl_easy_setopt(curl,  CURLOPT_COPYPOSTFIELDS, post);
            res = curl_easy_perform(curl);
            /* Check for errors */ 
            if(res != CURLE_OK) {
-             fprintf(stderr, "curl_easy_perform() failed: %s\n",
-			 fflush(logfile);
-	
-                     curl_easy_strerror(res));
+             syslog(LOG_ERR, "curl_easy_perform() failed: %s\n",
+                     curl_easy_strerror(res));	
            }
            //cleanup
-           devices[i].filled = 0;
+           device.filled = 0;
            memset(out, '\0', sizeof(out));
            memset(post, '\0', sizeof(post));
-         } //if ENTER
+         } //endif ENTER
 
          // Write valid characters to buffer
          //   - numbers from 0-9
@@ -224,49 +167,49 @@ void *thread(void *arg)
          //   - score letters a, b, e, s, d, o (k is ignored)
          //   - first line of numblock assigned to scores ()
          //   - '+' for score setup
-         if ((devices[i].queue[idxOfInterest].code >= 2 && devices[i].queue[idxOfInterest].code <=11)  ||
+         if ((device.queue[idxOfInterest].code >= 2 && device.queue[idxOfInterest].code <=11)  ||
            
-             (devices[i].queue[idxOfInterest].code >= 71 && devices[i].queue[idxOfInterest].code <=73) ||
-             (devices[i].queue[idxOfInterest].code >= 75 && devices[i].queue[idxOfInterest].code <=77) ||
-             (devices[i].queue[idxOfInterest].code >= 79 && devices[i].queue[idxOfInterest].code <=82) ||
+             (device.queue[idxOfInterest].code >= 71 && device.queue[idxOfInterest].code <=73) ||
+             (device.queue[idxOfInterest].code >= 75 && device.queue[idxOfInterest].code <=77) ||
+             (device.queue[idxOfInterest].code >= 79 && device.queue[idxOfInterest].code <=82) ||
                
-             devices[i].queue[idxOfInterest].code == 51 || devices[i].queue[idxOfInterest].code == 52  || 
-             devices[i].queue[idxOfInterest].code == 83 ||
+             device.queue[idxOfInterest].code == 51 || device.queue[idxOfInterest].code == 52  || 
+             device.queue[idxOfInterest].code == 83 ||
                
-             devices[i].queue[idxOfInterest].code == 24 || devices[i].queue[idxOfInterest].code == 30  ||
-             devices[i].queue[idxOfInterest].code == 31 || devices[i].queue[idxOfInterest].code == 32  ||
-             devices[i].queue[idxOfInterest].code == 48 || devices[i].queue[idxOfInterest].code == 18  ||
+             device.queue[idxOfInterest].code == 24 || device.queue[idxOfInterest].code == 30  ||
+             device.queue[idxOfInterest].code == 31 || device.queue[idxOfInterest].code == 32  ||
+             device.queue[idxOfInterest].code == 48 || device.queue[idxOfInterest].code == 18  ||
              
-             devices[i].queue[idxOfInterest].code == 98 || devices[i].queue[idxOfInterest].code == 55  ||
-             devices[i].queue[idxOfInterest].code == 74 || devices[i].queue[idxOfInterest].code == 78 ) {
-           devices[i].buffer[devices[i].filled] = devices[i].queue[idxOfInterest].code;
-           if (devices[i].filled < 16 ) {
-             devices[i].filled++;
+             device.queue[idxOfInterest].code == 98 || device.queue[idxOfInterest].code == 55  ||
+             device.queue[idxOfInterest].code == 74 || device.queue[idxOfInterest].code == 78 ) {
+           device.buffer[device.filled] = device.queue[idxOfInterest].code;
+           if (device.filled < 16 ) {
+             device.filled++;
            } else {
              int k;
              for (k = 0; k < (__SEND_BUFFER__ - 1); k++) {
-               devices[i].buffer[k] = devices[i].buffer[k+1];
+               device.buffer[k] = device.buffer[k+1];
              }
-             devices[i].buffer[__SEND_BUFFER__-1] = 0;
+             device.buffer[__SEND_BUFFER__-1] = 0;
            }
          }
       }
    }
-   fprintf (logfile,"DEBUG: THREAD[%i]: ended event loop for device %i (%s)\n", i, i, devices[i].node);
-   fflush(logfile);
-
-   return(0);
+   syslog(LOG_DEBUG,"DEBUG: ended event loop for device (%s)\n", device.node);
+   return(rvalue);
  }
 
 void printHelp() {
   printf("AeroChimp Score Input Server %s\n\n", __VERSION__);
-  printf("Usage: inputserver IP PORT UID\n\n");
-  printf("  IP    server to report score inputs to\n");
-  printf("  PORT  port of server to report score inputs to\n");
-  printf("  UID   unique ID (max. 8 chars) of the system to identify devices of multiple parallel systems\n");
+  printf("Usage: inputserver IP PORT UID PATH DEVID\n\n");
+  printf("  IP      server to report score inputs to\n");
+  printf("  PORT    port of server to report score inputs to\n");
+  printf("  UID     unique ID (max. 8 chars) of the system to identify devices of multiple parallel systems\n");
+  printf("  PATH    fully qualified path of the input device node\n");
+  printf("  DEVID   unique ID of the input device to identify devices of multiple parallel systems\n");
   printf("\n");
   printf("Example:\n");
-  printf("          inputserver 10.0.1.14 5000 PI1\n");
+  printf("          inputserver 10.0.1.14 5000 PI1 /dev/input/event0 1-1.1-1.3.1:1-0\n");
 }
 
 int main(int argc, char* argv[])
@@ -274,18 +217,14 @@ int main(int argc, char* argv[])
     pthread_t threads[64];
     int i, nodeCount, argi;
     int *devNum;
+    int result = 0;
+    int main_return = 0;
 
-    logfile = fopen("logfile.txt","w");
-    if (logfile < 0) {
-      printf("Could not initialize logfile");
-      exit(-2);
-    }
-    fprintf(logfile, "DEBUG: logfile opened\n");
-	fflush(logfile)
-    
-    if (argc < 4 ) {
-      printf("To few arguments");
-      printHelp();
+    setlogmask (LOG_UPTO (LOG_DEBUG));
+    openlog ("inputserver", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_DAEMON);
+    if (argc < 6 ) {
+      syslog(LOG_ERR,"To few arguments");
+      //printHelp();
       exit(-1);
     }
     if (strlen(argv[1]) > strlen(argv[2])) {
@@ -296,28 +235,47 @@ int main(int argc, char* argv[])
       strcpy(ip, argv[2]);
     }
     strcpy(uid, argv[3]);
-    fprintf(logfile,"DEBUG: server ip is %s with port %s on system %s\n",ip,port, uid);
-	fflush(logfile)
+    syslog (LOG_INFO, "server is running with ip %s and port %s on system %s", ip, port, uid);
     
-    nodeCount = loadInputEventNodes(devices);
-    
+    //load device
+    strncpy(device.node, argv[4], strlen(argv[4]));
+    strncpy(device.uid, argv[5], strlen(argv[5]));
+    syslog(LOG_DEBUG,"DEBUG: read address \"%s\" for device\n", device.node);
+    device.handle = -1;
+    device.handle = open(device.node, O_RDONLY);
+    if (device.handle == -1) {
+        syslog(LOG_ERR,"ERROR: Failed to open event device %s.\n", device.node);
+        perror("Failed to open event device");
+        exit(1);
+    }
+    result = ioctl(device.handle, EVIOCGNAME(sizeof(device.name)), device.handle);
+    syslog(LOG_DEBUG,"DEBUG: reading from %s (%s)\n", device.node, device.name);
+    syslog(LOG_DEBUG,"DEBUG: getting exclusive access: ");
+    result = ioctl(device.handle, EVIOCGRAB, 1);
+    if (result == 0) {
+        device.filled = 0;
+        syslog(LOG_DEBUG,"SUCCESS\n");
+    } else {
+        syslog(LOG_ERR,"ERROR: Failed to get exclusive access of device %s.\n", device.node);
+        perror("Failed to get exclusive access on device");
+        exit(errno);
+    }
+
     curl_global_init(CURL_GLOBAL_ALL);
     
-    for (i=0; i < nodeCount && i < 64; i++) {
-      fprintf(logfile,"DEBUG: starting thread %i of %i listening on %s\n", i+1, nodeCount, devices[i].node);
-	  fflush(logfile);
-
-      devNum = (int *) malloc(sizeof(int));
-      *devNum = i;
-      pthread_create(&threads[i], NULL, thread, (void*)devNum);
-    }
+    //starting main loop
     
-    for (i=0; i < nodeCount && i < 64; i++) {
-      pthread_join(threads[i], NULL);
-    }
+    main_return = main_loop();
     
     curl_global_cleanup();
-    end(devices);
-    fclose(logfile);
-    return 0;
+    
+    result = ioctl(device.handle, EVIOCGRAB, 1);
+    close(device.handle);
+    if (main_return == 0) {
+      syslog(LOG_INFO, "INFO: application terminated normally.\n");
+    } else {
+      syslog(LOG_NOTICE, "INFO: application terminated with errors.\n");
+    }
+    closelog();
+    return main_return;
 }
