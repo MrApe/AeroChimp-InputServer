@@ -1,6 +1,8 @@
 .PHONY: build install uninstall clean
-build: inputserver
+inputserver: main.c
 	gcc -I/usr/include/curl -o inputserver main.c -L/usr/lib/arm-linux-gnueabihf -lcurl -luuid
+
+build: inputserver
 
 all: build install
 
