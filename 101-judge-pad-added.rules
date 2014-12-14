@@ -1,3 +1,3 @@
 # udev rule for attached keyboards to start inputserver
 
-KERNEL=="event?", SUBSYSTEM=="input", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceSubClass}=="01", ATTRS{bInterfaceProtocol}=="01", ACTION=="add", RUN+="/usr/bin/logger JudgePad added: $kernel $devpath", RUN+="/usr/local/bin/startJudgePad.sh $kernel $devpath"
+KERNEL=="event*", SUBSYSTEM=="input", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceSubClass}=="01", ATTRS{bInterfaceProtocol}=="01", ACTION=="add", RUN+="/usr/bin/logger JudgePad added: $kernel $devpath", RUN+="/usr/local/bin/startJudgePad.sh $kernel $devpath"
