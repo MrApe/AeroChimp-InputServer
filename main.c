@@ -179,14 +179,13 @@ int main_loop()
 						device.queue[3].code, device.queue[3].type, device.queue[3].value,
 						device.queue[4].code, device.queue[4].type, device.queue[4].value);
 			*/
-		int idxOfInterest = 0; //assuming the first event to be the event of index
+		int idxOfInterest = 1; //assuming the second event to be the event of index
 		if (device.queue[1].code == 69 && device.queue[3].code != 69 && 
 				device.queue[1].type == 1 && device.queue[1].value == 1 && 
 				device.queue[3].type == 1 && device.queue[3].value == 1) 
 		{
 			idxOfInterest = 3; //some devices send NUM_LOCK prior to the actual key
 		}
-		value = device.queue[idxOfInterest].value; //finally get the event
 
 		// Check for a valid input
 		//   type and value are a key event (which is 1 (EV_KEY) from linux/input.h)
