@@ -26,7 +26,7 @@
 	#define __OUT_BUFFER_SIZE__ 32
 #endif
 #ifndef __VERSION__
-	#define __VERSION__ "v1.2.0"
+	#define __VERSION__ "v1.2.1"
 #endif
 #ifndef __EVENT_QUEUE_SIZE__
 	#define __EVENT_QUEUE_SIZE__ 8
