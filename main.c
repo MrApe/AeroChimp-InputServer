@@ -26,7 +26,7 @@
 	#define __OUT_BUFFER_SIZE__ 32
 #endif
 #ifndef __VERSION__
-	#define __VERSION__ "v1.2.0"
+	#define __VERSION__ "v1.2.1"
 #endif
 #ifndef __EVENT_QUEUE_SIZE__
 	#define __EVENT_QUEUE_SIZE__ 8
@@ -71,6 +71,36 @@ struct input_device {
 	int buffer[__OUT_BUFFER_SIZE__];
 	char uid[__DEVICE_UID_LENGTH__];
 } device;
+
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char *dst, const char *src, size_t size) {
+    char *d = dst;
+    const char *s = src;
+    size_t n = size;
+
+    /* Copy as many bytes as will fit */
+    if (n != 0) {
+        while (--n != 0) {
+            if ((*d++ = *s++) == '\0') {
+                break;
+            }
+        }
+    }
+
+    /* Not enough room in dst, add NUL and traverse rest of src */
+    if (n == 0) {
+        if (size != 0) {
+            *d = '\0'; /* NUL-terminate dst */
+        }
+
+        while (*s++) {
+        }
+    }
+
+    return (s - src - 1); /* count does not include NUL */
+}
+#endif
+
 
 char charOf(int key) {
 	switch (key) {
@@ -149,14 +179,13 @@ int main_loop()
 						device.queue[3].code, device.queue[3].type, device.queue[3].value,
 						device.queue[4].code, device.queue[4].type, device.queue[4].value);
 			*/
-		int idxOfInterest = 0; //assuming the first event to be the event of index
+		int idxOfInterest = 1; //assuming the second event to be the event of index
 		if (device.queue[1].code == 69 && device.queue[3].code != 69 && 
 				device.queue[1].type == 1 && device.queue[1].value == 1 && 
 				device.queue[3].type == 1 && device.queue[3].value == 1) 
 		{
 			idxOfInterest = 3; //some devices send NUM_LOCK prior to the actual key
 		}
-		value = device.queue[idxOfInterest].value; //finally get the event
 
 		// Check for a valid input
 		//   type and value are a key event (which is 1 (EV_KEY) from linux/input.h)
