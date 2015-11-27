@@ -47,13 +47,13 @@
 	#define __PI_ID_LENGTH__ 8
 #endif
 #ifndef __DEVICE_NAME_LENGTH__
-	#define __DEVICE_NAME_LENGTH__ 256
+	#define __DEVICE_NAME_LENGTH__ 1024
 #endif
 #ifndef __DEVICE_NODE_LENGTH__
-	#define __DEVICE_NODE_LENGTH__ 256
+	#define __DEVICE_NODE_LENGTH__ 1024
 #endif
 #ifndef __DEVICE_UID_LENGTH__
-#define __DEVICE_UID_LENGTH__ 256
+#define __DEVICE_UID_LENGTH__ 1024
 #endif
 
 

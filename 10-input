@@ -1,0 +1,15 @@
+#!/bin/sh
+# Hotplug rule for OpenWRT to start an Inputserver
+
+HOSTID="WRT001"
+IP="10.0.1.14"
+PORT="5050"
+ID="`echo $DEVPATH | sed 's/\/input.*$//g' | md5sum | sed 's/  -//g'`"
+
+if [[ $ACTION == add ]]; then
+  SUBDEV="`echo $DEVPATH | sed 's/^.*:1\.//g' | sed 's/\/input.*$//g'`"
+  #logger -t DEBUG "Checking for new Device.. $ACTION $DEVICENAME $ID $SUBDEV"
+  if [[ $SUBDEV == 0 ]] && [[ `echo $DEVICENAME | grep "^event"` != '' ]]; then
+    /root/Inputserver ${IP} ${PORT} ${HOSTID} /dev/${DEVNAME} ${ID} &
+  fi
+fi

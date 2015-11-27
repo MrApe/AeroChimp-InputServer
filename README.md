@@ -16,6 +16,25 @@ There is no install. It's just the executable. Build it with
 		
 		gcc -I/usr/include/curl -o inputserver main.c -L/usr/lib/arm-linux-gnueabihf -lcurl -luuid
 
+### OpenWRT cross
+
+If you want to build the executable for OpenWRT (or any other platform) you might want to cross compile it. The following is essentially borrowed from [here](https://wiki.openwrt.org/doc/devel/crosscompile).
+
+1. Add your cross compiler to the PATH
+		
+		PATH=$PATH:(your toolchain/bin directory here)
+		export PATH
+
+2. Set the STAGING_DIR variable to yout toolchain directory. This is the one starting with 'toolchain' in the `staging_dir`.
+
+		STAGING_DIR=/Volumes/workspace/openwrt/staging_dir/toolchain-mipsel_24kec+dsp_gcc-4.8-linaro_uClibc-0.9.33.2
+		export STAGING_DIR
+
+3. Build it using your cross compiler. **Be sure to issue this command from the target directory**
+		
+		cd /Volumes/workspace/openwrt/staging_dir/target-mipsel_24kec+dsp_uClibc-0.9.33.2
+		mipsel-openwrt-linux-gcc ~/Dev/AeroChimp-InputServer/main.c -o Inputserver -Iusr/include/curl -Iusr/include -lcurl -luuid
+
 ## Launch ##
 
 ### Device Discovery 
