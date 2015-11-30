@@ -216,7 +216,7 @@ int main_loop()
 				if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
 					// REST signature of setup requests are
 					//   /setDevice/[panel_number]
-					snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/setDevice/%c", ip, port, out[3]);
+					snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/device/%c", ip, port, out[3]);
 					// remove '...'
 					snprintf(out, __OUT_BUFFER_SIZE__ - 1, "%c%c", out[4], out[5]);
 				} else {
