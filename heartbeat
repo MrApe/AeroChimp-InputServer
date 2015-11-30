@@ -6,7 +6,7 @@ TIME=2
 
 heartbeat_loop() {
   while true; do
-    curl -X POST http://${IP}:${PORT}/heartbeat/`hostname` &
+    curl -X POST http://${IP}:${PORT}/heartbeat/`hostname` > /dev/null  2>&1  &
     sleep ${TIME}
   done
 }
