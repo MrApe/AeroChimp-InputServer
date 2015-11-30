@@ -1,0 +1,16 @@
+#!/bin/sh
+
+IP=10.0.1.14
+PORT=5050
+TIME=2
+
+heartbeat_loop() {
+  while true; do
+    curl -X POST http://${IP}:${PORT}/heartbeat/`hostname` &
+    sleep ${TIME}
+  done
+}
+
+echo -n "Starting Heartbeat: "
+heartbeat_loop &
+echo "[OK]"
