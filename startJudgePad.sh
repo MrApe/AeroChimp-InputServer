@@ -8,10 +8,10 @@ ID=$(echo $2 | sed -e 's/\/input.*$//g' -e 's/\/00.*$//g' -e 's/^.*\///g' | md5s
 
 logger Starting judgePad on ${PIID} sending to ${IP}:${PORT} with device $1 as $ID
 
-curl -d "device=${PIID}_${ID}" http://${IP}:${PORT}/device
+#curl -d "device=${PIID}_${ID}" http://${IP}:${PORT}/device
 
-inputserver ${IP} ${PORT} ${PIID} /dev/input/$1 $ID  
+inputserver ${IP} ${PORT} ${PIID} /dev/input/$1 $ID &
 
-curl -X DELETE  http://${IP}:${PORT}/device/${PIID}_${ID}
+#curl -X DELETE  http://${IP}:${PORT}/device/${PIID}_${ID}
 
-logger judgePad on ${PIID} sending to ${IP}:${PORT} with device $1 as $ID ended
+logger Started judgePad on ${PIID} sending to ${IP}:${PORT} with device $1 as $ID 

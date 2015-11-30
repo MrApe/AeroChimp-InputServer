@@ -158,6 +158,20 @@ int main_loop()
 
 	syslog (LOG_DEBUG,"DEBUG: starting event loop for device (%s)\n", device.node);
 
+	snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/device", ip, port);
+	curl_easy_setopt(curl, CURLOPT_URL, post_address);
+	snprintf(post, __POST_BUFFER_SIZE__ - 1, "device=%s_%s", uid, device.uid);
+	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, post);
+	res = curl_easy_perform(curl);
+	// Check and report errors
+	if(res != CURLE_OK) {
+		syslog(LOG_ERR, "curl_easy_perform() failed: %s\n",
+		curl_easy_strerror(res));
+		return -1;
+	}
+	memset( post, '\0', sizeof(char)*__POST_BUFFER_SIZE__ );
+	memset( post_address, '\0', sizeof(char)*__POST_ADDRESS_SIZE__ );
+
 	while (1)
 	{
 		if ((rd = read(device.handle, device.queue, size * 64)) < size) {  
@@ -216,7 +230,7 @@ int main_loop()
 				if (out[0] == '.' && out[1] == '.' && out[2] == '.') {
 					// REST signature of setup requests are
 					//   /setDevice/[panel_number]
-					snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/device/%c", ip, port, out[3]);
+					snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/setDevice/%c", ip, port, out[3]);
 					// remove '...'
 					snprintf(out, __OUT_BUFFER_SIZE__ - 1, "%c%c", out[4], out[5]);
 				} else {
@@ -284,6 +298,17 @@ int main_loop()
 		}
 	}
 	syslog(LOG_DEBUG,"DEBUG: ended event loop for device (%s)\n", device.node);
+
+	//Send DELETE request to server to set device offline
+	snprintf(post_address, __POST_ADDRESS_SIZE__ - 1, "http://%s:%s/device/%s_%s", ip, port,uid, device.uid);
+	curl_easy_setopt(curl, CURLOPT_URL, post_address);
+	curl_easy_setopt(curl,CURLOPT_CUSTOMREQUEST,"DELETE");
+	res = curl_easy_perform(curl);
+	// Check and report errors
+	if(res != CURLE_OK) {
+		syslog(LOG_ERR, "curl_easy_perform() failed: %s\n",
+		curl_easy_strerror(res));
+	}
 	return(rvalue);
 }
 
