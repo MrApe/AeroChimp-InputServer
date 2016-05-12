@@ -8,7 +8,7 @@ This is a small tool, which captures keyboard input of different devices and sen
 * some sort of c compiler
 * [libcurl](http://curl.haxx.se)
 * libuuid
-		sudo apt-get install uuid-dev
+		sudo apt-get install uuid-dev libcurl4-openssl-dev
 
 ## Install ##
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-IP="10.0.1.14"
+IP="10.0.1.1"
 PORT="5050"
 PIID=$(hostname)
 ID=$(echo $2 | sed -e 's/\/input.*$//g' -e 's/\/00.*$//g' -e 's/^.*\///g' | md5sum | sed 's/  -//g')

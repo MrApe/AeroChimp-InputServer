@@ -1,8 +1,8 @@
 #!/bin/sh
 
-IP=10.0.1.14
+IP=10.0.1.1
 PORT=5050
-TIME=2
+TIME=1
 
 heartbeat_loop() {
   while true; do
